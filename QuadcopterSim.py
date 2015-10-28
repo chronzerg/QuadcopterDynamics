@@ -1,15 +1,25 @@
 import numpy as np
 from math import *
-import time
+import matplotlib.pyplot as plt
+import mpl_toolkits.mplot3d.axes3d as p3
+import matplotlib.animation as animation
 
 
 """Converts a linear enumerable of items into a column vector."""
 def MakeVector(items):
 	return np.matrix(np.vstack(items))
 
-
+"""Returns the 3 elements of a vector in a string separated by spaces."""
 def StringifyVector(vector):
 	return '%f %f %f' % tuple(vector.A.flatten())
+
+
+"""Prints the position, position rates, attitude, and attitude rates."""
+def PrintState():
+	print("Pos:  ", StringifyVector(position))
+	print("Pos*: ", StringifyVector(positionRates))
+	print("Att:  ", StringifyVector(attitude))
+	print("Att*: ", StringifyVector(attitudeRates), "\n")
 
 
 """R is the rotation matrix for converting vectors from the body frame to the inertial frame."""
@@ -100,51 +110,69 @@ def CalculateAngularAcceleration(inputs, angularVelocity, inertia, L, b, k):
 	return inertia.getI()*(torque-np.cross(angularVelocity, inertia*angularVelocity, axis=0))
 
 
+def DrawFrame(position, attitude, axes):
+	R = CalculateR(attitude)
+	px = (R * xArm).A.flatten()
+	py = (R * yArm).A.flatten()
+	x = position[0,0]
+	y = position[1,0]
+	z = position[2,0]
+
+	axes.plot((x-px[0], x+px[0]), (y-px[1], y+px[1]), (z-px[2], z+px[2]))
+	axes.plot((x-py[0], x+py[0]), (y-py[1], y+py[1]), (z-py[2], z+py[2]))
+
+
 ## Main ##
+verbose = False
+slowFactor = 100
 
 dt = 0.005 #ms
-slowFactor = 1
-
 g = 9.81 #m/s
 
 mass = 1 #kg
-inertia = np.matrix(np.diag((1,1,1))) #TODO: get unit
 L = 0.37 #m
+
+# Assumming the quadcopter is 4 point masses at the motors...
+# Inertias in units of kg*(m^2)
+Ixx = 2*(mass/4)*(L*L) 
+Iyy = Ixx
+Izz = 2*Ixx
 
 k = 1 #thrust constant
 kd = 1 #drag constant
 b = 1 #torque constant
 
+inertia = np.matrix(np.diag((Ixx, Iyy, Izz)))
+
 position = MakeVector((0, 0, 10))
 positionRates = MakeVector((0, 0, 0))
 
 attitude = MakeVector((0, 0, 0))
-attitudeRates = MakeVector((2, 1, 0))
+attitudeRates = MakeVector((0.02, 0.01, 0))
 
-print("Pos:  ", StringifyVector(position))
-print("Pos*: ", StringifyVector(positionRates))
-print("Att:  ", StringifyVector(attitude))
-print("Att*: ", StringifyVector(attitudeRates), "\n")
+xArm = MakeVector((L, 0, 0))
+yArm = MakeVector((0, L, 0))
 
-while True:
-	# TODO: Calculate input
-	inputs = [0, 0, 0, 0]
+fig = plt.figure()
+axes = p3.Axes3D(fig)
 
-	angularVelocity = AttitudeRatesToAngularVelocity(attitudeRates, attitude)
+DrawFrame(position, attitude, axes)
 
-	acceleration = CalculateLinearAcceleration(inputs, attitude, positionRates, mass, g, k, kd)
-	angularAcceleration = CalculateAngularAcceleration(inputs, angularVelocity, inertia, L, b, k)
+# TODO: Calculate controller input
+inputs = [0, 0, 0, 0]
 
-	angularVelocity = angularVelocity + (dt * angularAcceleration)
-	attitudeRates = AngularVelocityToAttitudeRates(angularVelocity, attitude)
-	attitude = attitude + (dt * attitudeRates)
+angularVelocity = AttitudeRatesToAngularVelocity(attitudeRates, attitude)
 
-	positionRates = positionRates + (dt * acceleration)
-	position = position + (dt * positionRates)
+acceleration = CalculateLinearAcceleration(inputs, attitude, positionRates, mass, g, k, kd)
+angularAcceleration = CalculateAngularAcceleration(inputs, angularVelocity, inertia, L, b, k)
 
-	print("Pos:  ", StringifyVector(position))
-	print("Pos*: ", StringifyVector(positionRates))
-	print("Att:  ", StringifyVector(attitude))
-	print("Att*: ", StringifyVector(attitudeRates), "\n")
+angularVelocity = angularVelocity + (dt * angularAcceleration)
+attitudeRates = AngularVelocityToAttitudeRates(angularVelocity, attitude)
+attitude = attitude + (dt * attitudeRates)
 
-	time.sleep(dt * slowFactor)
+positionRates = positionRates + (dt * acceleration)
+position = position + (dt * positionRates)
+
+DrawFrame(position, attitude, axes)
+
+plt.show()
