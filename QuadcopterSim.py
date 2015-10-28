@@ -110,69 +110,98 @@ def CalculateAngularAcceleration(inputs, angularVelocity, inertia, L, b, k):
 	return inertia.getI()*(torque-np.cross(angularVelocity, inertia*angularVelocity, axis=0))
 
 
-def DrawFrame(position, attitude, axes):
+"""Draw the current frame of the simulation onto the plot."""
+def DrawFrame():
 	R = CalculateR(attitude)
+
+	# Transform the arms into the inertia frame and store them as a flattened list.
 	px = (R * xArm).A.flatten()
 	py = (R * yArm).A.flatten()
+
 	x = position[0,0]
 	y = position[1,0]
 	z = position[2,0]
 
+	axes.cla()
+
+	# Plot both arms in the body-frame's x axis.
 	axes.plot((x-px[0], x+px[0]), (y-px[1], y+px[1]), (z-px[2], z+px[2]))
+
+	# Plot both arms in the body-frame's y axis.
 	axes.plot((x-py[0], x+py[0]), (y-py[1], y+py[1]), (z-py[2], z+py[2]))
 
 
-## Main ##
+"""Calculate the next frame of the simulation."""
+def CalculateNextFrame(position, positionRates, attitude, attitudeRates):
+	c = constants
+
+	angularVelocity = AttitudeRatesToAngularVelocity(attitudeRates, attitude)
+
+	acceleration = CalculateLinearAcceleration(inputs, attitude, positionRates, c['mass'], c['g'], c['k'], c['kd'])
+	angularAcceleration = CalculateAngularAcceleration(inputs, angularVelocity, c['inertia'], c['L'], c['b'], c['k'])
+
+	angularVelocity = angularVelocity + (dt * angularAcceleration)
+	attitudeRates = AngularVelocityToAttitudeRates(angularVelocity, attitude)
+	attitude = attitude + (dt * attitudeRates)
+
+	positionRates = positionRates + (dt * acceleration)
+	position = position + (dt * positionRates)
+
+	return position, positionRates, attitude, attitudeRates
+
+
+def RunSimulationTick(num):
+	global position, positionRates, attitude, attitudeRates
+	position, positionRates, attitude, attitudeRates = CalculateNextFrame(position, positionRates, attitude, attitudeRates)
+	# TODO: Calculate controller input
+	DrawFrame()
+
+
+
+              ##############
+################## Main ##################
+              ##############
+
 verbose = False
 slowFactor = 100
+dt = 0.050
 
-dt = 0.005 #ms
-g = 9.81 #m/s
 
-mass = 1 #kg
-L = 0.37 #m
+##### Constants ##########################
+constants = dict()
+constants['g'] = 9.81 #m/s
+constants['mass'] = 1 #kg
+constants['L'] = 0.37 #m
 
 # Assumming the quadcopter is 4 point masses at the motors...
 # Inertias in units of kg*(m^2)
-Ixx = 2*(mass/4)*(L*L) 
+Ixx = 2*(constants['mass']/4)*pow(constants['L'],2)
 Iyy = Ixx
 Izz = 2*Ixx
 
-k = 1 #thrust constant
-kd = 1 #drag constant
-b = 1 #torque constant
+constants['k'] = 1 #thrust constant
+constants['kd'] = 1 #drag constant
+constants['b'] = 1 #torque constant
+constants['inertia'] = np.matrix(np.diag((Ixx, Iyy, Izz))) #interial matrix
 
-inertia = np.matrix(np.diag((Ixx, Iyy, Izz)))
 
+##### Physical State #####################
 position = MakeVector((0, 0, 10))
 positionRates = MakeVector((0, 0, 0))
-
 attitude = MakeVector((0, 0, 0))
 attitudeRates = MakeVector((0.02, 0.01, 0))
 
-xArm = MakeVector((L, 0, 0))
-yArm = MakeVector((0, L, 0))
 
-fig = plt.figure()
-axes = p3.Axes3D(fig)
-
-DrawFrame(position, attitude, axes)
-
-# TODO: Calculate controller input
+##### Controller #########################
 inputs = [0, 0, 0, 0]
 
-angularVelocity = AttitudeRatesToAngularVelocity(attitudeRates, attitude)
 
-acceleration = CalculateLinearAcceleration(inputs, attitude, positionRates, mass, g, k, kd)
-angularAcceleration = CalculateAngularAcceleration(inputs, angularVelocity, inertia, L, b, k)
+##### Plotting ###########################
+# xArm and yArm are body-frame vectors representing the quadcopter's arms in the x and y directions.
+xArm = MakeVector((constants['L'], 0, 0))
+yArm = MakeVector((0, constants['L'], 0))
 
-angularVelocity = angularVelocity + (dt * angularAcceleration)
-attitudeRates = AngularVelocityToAttitudeRates(angularVelocity, attitude)
-attitude = attitude + (dt * attitudeRates)
-
-positionRates = positionRates + (dt * acceleration)
-position = position + (dt * positionRates)
-
-DrawFrame(position, attitude, axes)
-
+figure = plt.figure()
+axes = p3.Axes3D(figure)
+line_ani = animation.FuncAnimation(figure, RunSimulationTick, None, interval=dt*1000, blit=False)
 plt.show()
