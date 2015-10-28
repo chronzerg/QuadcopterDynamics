@@ -1,2 +1,2 @@
 # QuadcopterDynamics
-Quadcopter control simulation written in Python.
+Quadcopter simulation and controller written in Python.
