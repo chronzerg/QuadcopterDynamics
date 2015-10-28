@@ -1,17 +1,22 @@
 import numpy as np
 from math import *
+import time
 
 
 """Converts a linear enumerable of items into a column vector."""
 def MakeVector(items):
-	return np.matrix(np.column_stack(items))
+	return np.matrix(np.vstack(items))
+
+
+def StringifyVector(vector):
+	return '%f %f %f' % tuple(vector.A.flatten())
 
 
 """R is the rotation matrix for converting vectors from the body frame to the inertial frame."""
 def CalculateR(attitude):
-	roll =  attitude[0]
-	pitch = attitude[1]
-	yaw =   attitude[2]
+	roll =  attitude[0,0]
+	pitch = attitude[1,0]
+	yaw =   attitude[2,0]
 
 	R = np.matrix(np.zeros((3,3)))
 
@@ -32,11 +37,11 @@ def CalculateR(attitude):
 
 """T is the transformation matrix for converting a vector of euler angle velocities to an angular velocity vector (about which the body rotates)."""
 def CalculateT(attitude):
-	roll =  attitude[0]
-	pitch = attitude[1]
-	yaw =   attitude[2]
+	roll =  attitude[0,0]
+	pitch = attitude[1,0]
+	yaw =   attitude[2,0]
 
-	T = np.matrix(np.zeros(3,3))
+	T = np.matrix(np.zeros((3,3)))
 
 	T[0,0] = 1
 	T[0,1] = 0
@@ -58,14 +63,14 @@ def AttitudeRatesToAngularVelocity(attitudeRates, attitude):
 
 
 def AngularVelocityToAttitudeRates(angularVelocity, attitude):
-	return CalculateT(attitude).GetI()*angularVelocity
+	return CalculateT(attitude).getI()*angularVelocity
 
 
 """Thrust in the body frame."""
 def CalculateThrust(inputs, k):
 	xComponent = 0
 	yComponent = 0
-	zComponent = k*inputs.sum()
+	zComponent = k*sum(inputs)
 
 	return MakeVector((xComponent, yComponent, zComponent))
 
@@ -76,7 +81,7 @@ def CalculateTorque(inputs, L, b, k):
 	pitchComponent = L*k*(inputs[1]-inputs[3])
 	yawComponent =   b*(inputs[0]-inputs[1]+inputs[2]-inputs[3])
 
-	return MakeVector(rollComponent, pitchComponent, yawComponent)
+	return MakeVector((rollComponent, pitchComponent, yawComponent))
 
 
 def CalculateLinearAcceleration(inputs, attitude, velocity, mass, g, k, kd):
@@ -86,10 +91,60 @@ def CalculateLinearAcceleration(inputs, attitude, velocity, mass, g, k, kd):
 	thrust =  R*CalculateThrust(inputs, k)
 	drag =    -kd*velocity
 	
-	return gravity+(thrust/m)+drag
+	return gravity+(thrust/mass)+drag
 
 
 def CalculateAngularAcceleration(inputs, angularVelocity, inertia, L, b, k):
 	torque = CalculateTorque(inputs, L, b, k)
 
-	return inertia.GetI()*(torque-np.cross(angularVelocity, inertia*angularVelocity, axis=0))
+	return inertia.getI()*(torque-np.cross(angularVelocity, inertia*angularVelocity, axis=0))
+
+
+## Main ##
+
+dt = 0.005 #ms
+slowFactor = 1
+
+g = 9.81 #m/s
+
+mass = 1 #kg
+inertia = np.matrix(np.diag((1,1,1))) #TODO: get unit
+L = 0.37 #m
+
+k = 1 #thrust constant
+kd = 1 #drag constant
+b = 1 #torque constant
+
+position = MakeVector((0, 0, 10))
+positionRates = MakeVector((0, 0, 0))
+
+attitude = MakeVector((0, 0, 0))
+attitudeRates = MakeVector((2, 1, 0))
+
+print("Pos:  ", StringifyVector(position))
+print("Pos*: ", StringifyVector(positionRates))
+print("Att:  ", StringifyVector(attitude))
+print("Att*: ", StringifyVector(attitudeRates), "\n")
+
+while True:
+	# TODO: Calculate input
+	inputs = [0, 0, 0, 0]
+
+	angularVelocity = AttitudeRatesToAngularVelocity(attitudeRates, attitude)
+
+	acceleration = CalculateLinearAcceleration(inputs, attitude, positionRates, mass, g, k, kd)
+	angularAcceleration = CalculateAngularAcceleration(inputs, angularVelocity, inertia, L, b, k)
+
+	angularVelocity = angularVelocity + (dt * angularAcceleration)
+	attitudeRates = AngularVelocityToAttitudeRates(angularVelocity, attitude)
+	attitude = attitude + (dt * attitudeRates)
+
+	positionRates = positionRates + (dt * acceleration)
+	position = position + (dt * positionRates)
+
+	print("Pos:  ", StringifyVector(position))
+	print("Pos*: ", StringifyVector(positionRates))
+	print("Att:  ", StringifyVector(attitude))
+	print("Att*: ", StringifyVector(attitudeRates), "\n")
+
+	time.sleep(dt * slowFactor)
