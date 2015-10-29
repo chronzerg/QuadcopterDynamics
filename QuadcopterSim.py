@@ -122,13 +122,17 @@ def DrawFrame():
 	y = position[1,0]
 	z = position[2,0]
 
-	axes.cla()
-
 	# Plot both arms in the body-frame's x axis.
-	axes.plot((x-px[0], x+px[0]), (y-px[1], y+px[1]), (z-px[2], z+px[2]))
+	xLine.set_data((x-px[0], x+px[0]), (y-px[1], y+px[1]))
+	xLine.set_3d_properties((z-px[2], z+px[2]))
 
 	# Plot both arms in the body-frame's y axis.
-	axes.plot((x-py[0], x+py[0]), (y-py[1], y+py[1]), (z-py[2], z+py[2]))
+	yLine.set_data((x-py[0], x+py[0]), (y-py[1], y+py[1]))
+	yLine.set_3d_properties((z-py[2], z+py[2]))
+
+	axes.set_xlim(x-margins, x+margins)
+	axes.set_ylim(y-margins, y+margins)
+	axes.set_zbound(z-margins, z+margins)
 
 
 """Calculate the next frame of the simulation."""
@@ -164,7 +168,8 @@ def RunSimulationTick(num):
 
 verbose = False
 slowFactor = 100
-dt = 0.050
+dt = 0.01
+margins = 1
 
 
 ##### Constants ##########################
@@ -189,7 +194,7 @@ constants['inertia'] = np.matrix(np.diag((Ixx, Iyy, Izz))) #interial matrix
 position = MakeVector((0, 0, 10))
 positionRates = MakeVector((0, 0, 0))
 attitude = MakeVector((0, 0, 0))
-attitudeRates = MakeVector((0.02, 0.01, 0))
+attitudeRates = MakeVector((1, 1, 0))
 
 
 ##### Controller #########################
@@ -203,5 +208,9 @@ yArm = MakeVector((0, constants['L'], 0))
 
 figure = plt.figure()
 axes = p3.Axes3D(figure)
-line_ani = animation.FuncAnimation(figure, RunSimulationTick, None, interval=dt*1000, blit=False)
+xLine = axes.plot((-1,1),(0,0),(0,0))[0]
+yLine = axes.plot((0,0),(-1,1),(0,0))[0]
+
+line_ani = animation.FuncAnimation(figure, RunSimulationTick, None, interval=25, blit=False)
+
 plt.show()
