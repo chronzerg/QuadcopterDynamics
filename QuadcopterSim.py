@@ -22,6 +22,23 @@ def PrintState():
 	print("Att*: ", StringifyVector(attitudeRates), "\n")
 
 
+def NormalizeAngle(angle):
+	while angle < 0:
+		angle += 2*pi
+	
+	while angle > 2*pi:
+		angle -= 2*pi
+	
+	return angle
+
+
+def NormalizeAngleVector(vector):
+	for angle in np.nditer(vector, op_flags=['readwrite']):
+		angle = NormalizeAngle(angle)
+
+	return vector
+
+
 """R is the rotation matrix for converting vectors from the body frame to the inertial frame."""
 def CalculateR(attitude):
 	roll =  attitude[0,0]
@@ -117,6 +134,7 @@ def DrawFrame():
 	# Transform the arms into the inertia frame and store them as a flattened list.
 	px = (R * xArm).A.flatten()
 	py = (R * yArm).A.flatten()
+	up = (R * upArm).A.flatten()
 
 	x = position[0,0]
 	y = position[1,0]
@@ -129,6 +147,10 @@ def DrawFrame():
 	# Plot both arms in the body-frame's y axis.
 	yLine.set_data((x-py[0], x+py[0]), (y-py[1], y+py[1]))
 	yLine.set_3d_properties((z-py[2], z+py[2]))
+
+	# Plot the up vector
+	upLine.set_data((x+px[0], x+up[0]), (y+px[1], y+up[1]))
+	upLine.set_3d_properties((z+px[2], z+up[2]))
 
 	axes.set_xlim(x-margins, x+margins)
 	axes.set_ylim(y-margins, y+margins)
@@ -146,7 +168,7 @@ def CalculateNextFrame(position, positionRates, attitude, attitudeRates):
 
 	angularVelocity = angularVelocity + (dt * angularAcceleration)
 	attitudeRates = AngularVelocityToAttitudeRates(angularVelocity, attitude)
-	attitude = attitude + (dt * attitudeRates)
+	attitude = NormalizeAngleVector(attitude + (dt * attitudeRates))
 
 	positionRates = positionRates + (dt * acceleration)
 	position = position + (dt * positionRates)
@@ -159,6 +181,7 @@ def RunSimulationTick(num):
 	position, positionRates, attitude, attitudeRates = CalculateNextFrame(position, positionRates, attitude, attitudeRates)
 	# TODO: Calculate controller input
 	DrawFrame()
+	PrintState()
 
 
 
@@ -206,10 +229,14 @@ inputs = [0, 0, 0, 0]
 xArm = MakeVector((constants['L'], 0, 0))
 yArm = MakeVector((0, constants['L'], 0))
 
+# The point used to draw the "up" direction vector from the top of the forward facing x arm.
+upArm = MakeVector((constants['L'], 0, 0.1))
+
 figure = plt.figure()
 axes = p3.Axes3D(figure)
 xLine = axes.plot((-1,1),(0,0),(0,0))[0]
 yLine = axes.plot((0,0),(-1,1),(0,0))[0]
+upLine = axes.plot((1,1), (0,0), (0, 0.1))[0]
 
 line_ani = animation.FuncAnimation(figure, RunSimulationTick, None, interval=25, blit=False)
 
