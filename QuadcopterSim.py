@@ -5,6 +5,7 @@ import mpl_toolkits.mplot3d.axes3d as p3
 import matplotlib.animation as animation
 
 
+
 """Converts a linear enumerable of items into a column vector."""
 def MakeVector(items):
 	return np.matrix(np.vstack(items))
@@ -176,12 +177,21 @@ def CalculateNextFrame(position, positionRates, attitude, attitudeRates):
 	return position, positionRates, attitude, attitudeRates
 
 
+def ValidState(position):
+	if position[2,0] <= 0:
+		return False
+	else:
+		return True
+
+
 def RunSimulationTick(num):
 	global position, positionRates, attitude, attitudeRates
-	position, positionRates, attitude, attitudeRates = CalculateNextFrame(position, positionRates, attitude, attitudeRates)
-	# TODO: Calculate controller input
-	DrawFrame()
-	PrintState()
+	
+	if ValidState(position):
+		position, positionRates, attitude, attitudeRates = CalculateNextFrame(position, positionRates, attitude, attitudeRates)
+		# TODO: Calculate controller input
+		PrintState()
+		DrawFrame()
 
 
 
@@ -191,7 +201,7 @@ def RunSimulationTick(num):
 
 verbose = False
 slowFactor = 100
-dt = 0.01
+dt = 0.050
 margins = 1
 
 
@@ -217,7 +227,7 @@ constants['inertia'] = np.matrix(np.diag((Ixx, Iyy, Izz))) #interial matrix
 position = MakeVector((0, 0, 10))
 positionRates = MakeVector((0, 0, 0))
 attitude = MakeVector((0, 0, 0))
-attitudeRates = MakeVector((1, 1, 0))
+attitudeRates = MakeVector((0.1, 0.2, 0.3))
 
 
 ##### Controller #########################
@@ -238,6 +248,6 @@ xLine = axes.plot((-1,1),(0,0),(0,0))[0]
 yLine = axes.plot((0,0),(-1,1),(0,0))[0]
 upLine = axes.plot((1,1), (0,0), (0, 0.1))[0]
 
-line_ani = animation.FuncAnimation(figure, RunSimulationTick, None, interval=25, blit=False)
+line_ani = animation.FuncAnimation(figure, RunSimulationTick, None, interval=50, blit=False)
 
 plt.show()
