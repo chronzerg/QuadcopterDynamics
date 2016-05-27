@@ -1,24 +1,16 @@
-def MakeVector(items):
+import numpy as np
+
+def makeVector(items):
     """Converts a linear enumerable of items into a column vector."""
     return np.matrix(np.vstack(items))
 
 
-def StringifyVector(vector):
-    """Returns the 3 elements of a vector in a string separated by
-    spaces."""
+def stringifyVector(vector):
+    """Returns the 3 elements of a vector in a string separated by spaces."""
     return '%f %f %f' % tuple(vector.A.flatten())
 
 
-def PrintState():
-    """Prints the position, position rates, attitude, and attitude
-    rates."""
-    print("Pos:  ", StringifyVector(position))
-    print("Pos*: ", StringifyVector(positionRates))
-    print("Att:  ", StringifyVector(attitude))
-    print("Att*: ", StringifyVector(attitudeRates), "\n")
-
-
-def NormalizeAngle(angle):
+def normalizeAngle(angle):
     while angle < 0:
         angle += 2*pi
 
@@ -28,8 +20,8 @@ def NormalizeAngle(angle):
     return angle
 
 
-def NormalizeAngleVector(vector):
+def normalizeAngleVector(vector):
     for angle in np.nditer(vector, op_flags=['readwrite']):
-        angle = NormalizeAngle(angle)
+        angle = normalize_angle(angle)
 
     return vector

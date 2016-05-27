@@ -4,28 +4,12 @@ import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d.axes3d as p3
 import matplotlib.animation as animation
 
-
-def CalculateNextFrame(position, positionRates, attitude, attitudeRates):
-    """Calculate the next frame of the simulation."""
-    c = constants
-
-    angularVelocity = AttitudeRatesToAngularVelocity(attitudeRates, attitude)
-
-    acceleration = CalculateLinearAcceleration(inputs, attitude, positionRates,
-                                               c['mass'], c['g'], c['k'],
-                                               c['kd'])
-    angularAcceleration = CalculateAngularAcceleration(inputs, angularVelocity,
-                                                       c['inertia'], c['L'],
-                                                       c['b'], c['k'])
-
-    angularVelocity = angularVelocity + (dt * angularAcceleration)
-    attitudeRates = AngularVelocityToAttitudeRates(angularVelocity, attitude)
-    attitude = NormalizeAngleVector(attitude + (dt * attitudeRates))
-
-    positionRates = positionRates + (dt * acceleration)
-    position = position + (dt * positionRates)
-
-    return position, positionRates, attitude, attitudeRates
+def printState():
+    """Prints the position, position rates, attitude, and attitude rates."""
+    print("Pos:  ", StringifyVector(self.position))
+    print("Pos*: ", StringifyVector(self.positionRates))
+    print("Att:  ", StringifyVector(self.attitude))
+    print("Att*: ", StringifyVector(self.attitudeRates), "\n")
 
 
 def ValidState(position):
@@ -46,30 +30,13 @@ def RunSimulationTick():
         PrintState()
         DrawFrame()
 
+
 # Main
 verbose = False
 dontCheckState = True
 slowFactor = 100
 dt = 0.050
 margins = 1
-
-
-# Constants
-constants = dict()
-constants['g'] = 9.81  # m/s
-constants['mass'] = 1  # kg
-constants['L'] = 0.37  # m
-
-# Assumming the quadcopter is 4 point masses at the motors...
-# Inertias in units of kg*(m^2)
-Ixx = 2*(constants['mass']/4)*pow(constants['L'], 2)
-Iyy = Ixx
-Izz = 2*Ixx
-
-constants['k'] = 1  # thrust constant
-constants['kd'] = 1  # drag constant
-constants['b'] = 1  # torque constant
-constants['inertia'] = np.matrix(np.diag((Ixx, Iyy, Izz)))  # interial matrix
 
 
 # Physical State
