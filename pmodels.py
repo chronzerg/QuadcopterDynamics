@@ -1,3 +1,7 @@
+"""
+Physical Models
+"""
+
 import tmatrix
 import rmatrix
 import utilities as ut
@@ -68,17 +72,36 @@ class QuadCopter:
             self.state['inputs'][motor] = value
 
 
-    def _angularVelocity(self):
-        """Convert fromt attitude rates to angular velocity."""
+    def updateState(elapsedTime):
+        angularVelocity = self._calcAngularVelocity()
+
+        acceleration = self._calcLinearAcceleration()
+        angularAcceleration = self._calcAngularAcceleration()
+
+        angularVelocity = angularVelocity + (elapsedTime * angularAcceleration)
+        attitudeRates = self._calcAttitudeRates(angularVelocity)
+        attitude = ut.normalizeAngleVector(attitude + (elapsedTime * attitudeRates))
+
+        positionRates = positionRates + (elapsedTime * acceleration)
+        position = position + (elapsedTime * positionRates)
+
+        self.state.update({
+            'position': position,
+            'attitude': attitude,
+            'positionRates': positionRates,
+            'attitudeRates': attitudeRates
+        })
+
+
+    def _calcAngularVelocity(self):
         return self.t.get(self.attitude)*self.attitudeRates
 
 
-    def _attitudeRates(self, angularVelocity):
-        """Convert from angular velocity to attitude rates."""
+    def _calcAttitudeRates(self, angularVelocity):
         return self.t.get(self.attitude).getI()*angularVelocity
 
 
-    def _thrust(self):
+    def _calcThrust(self):
         """Thrust in the body frame."""
         xComponent = 0
         yComponent = 0
@@ -87,7 +110,7 @@ class QuadCopter:
         return ut.makeVector((xComponent, yComponent, zComponent))
 
 
-    def _torque(self):
+    def _calcTorque(self):
         """Torque in the body frame."""
         inputs = self.state['inputs']
         l = self.c['armLength']
@@ -101,37 +124,18 @@ class QuadCopter:
         return ut.makeVector((rollComponent, pitchComponent, yawComponent))
 
 
-    def _linearAcceleration(self):
+    def _calcLinearAcceleration(self):
         r = self.r.get(self.attitude)
         gravity = ut.makeVector((0, 0, -self.c['g']))
-        thrust = r*self._thrust()
+        thrust = r*self._calcThrust()
         drag = -self.c['drag']*self.state['positionRates']
 
         return gravity+(thrust/self.c['mass'])+drag
 
 
-    def _angularAcceleration(self):
-        torque = self._torque()
-        angularVelocity = self._angularVelocity()
+    def _calcAngularAcceleration(self):
+        torque = self._calcTorque()
+        angularVelocity = self._calcAngularVelocity()
         crossed = np.cross(angularVelocity, self.c['intertia']*angularVelocity, axis=0)
 
         return inertia.getI()*(torque-crossed)
-
-
-    def CalculateNextFrame(position, positionRates, attitude, attitudeRates):
-        """Calculate the next frame of the simulation."""
-        c = constants
-
-        angularVelocity = AttitudeRatesToAngularVelocity(attitudeRates, attitude)
-
-        acceleration = CalculateLinearAcceleration(inputs, attitude, positionRates, c['mass'], c['g'], c['k'], c['kd'])
-        angularAcceleration = CalculateAngularAcceleration(inputs, angularVelocity, c['inertia'], c['L'], c['b'], c['k'])
-
-        angularVelocity = angularVelocity + (dt * angularAcceleration)
-        attitudeRates = AngularVelocityToAttitudeRates(angularVelocity, attitude)
-        attitude = NormalizeAngleVector(attitude + (dt * attitudeRates))
-
-        positionRates = positionRates + (dt * acceleration)
-        position = position + (dt * positionRates)
-
-        return position, positionRates, attitude, attitudeRates
