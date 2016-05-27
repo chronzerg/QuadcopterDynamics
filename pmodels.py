@@ -2,8 +2,8 @@
 Physical Models
 """
 
-import tmatrix
-import rmatrix
+from tmatrix import Matrix as TMatrix
+from rmatrix import Matrix as RMatrix
 import utilities as ut
 import numpy as np
 
@@ -54,8 +54,8 @@ class QuadCopter:
     }
 
     def __init__(self, constants, initials):
-        self.r = rmatrix.matrix()
-        self.t = tmatrix.matrix()
+        self.r = RMatrix()
+        self.t = TMatrix()
 
         self.c = self._defaultConstants.copy()
         self.c.update(constants)
@@ -94,10 +94,12 @@ class QuadCopter:
 
 
     def _calcAngularVelocity(self):
+        """Angular velocity in the world frame."""
         return self.t.get(self.attitude)*self.attitudeRates
 
 
     def _calcAttitudeRates(self, angularVelocity):
+        """Attitude rates in the body frame."""
         return self.t.get(self.attitude).getI()*angularVelocity
 
 
@@ -125,6 +127,7 @@ class QuadCopter:
 
 
     def _calcLinearAcceleration(self):
+        """Linear acceleration in the world frame."""
         r = self.r.get(self.attitude)
         gravity = ut.makeVector((0, 0, -self.c['g']))
         thrust = r*self._calcThrust()
@@ -134,6 +137,7 @@ class QuadCopter:
 
 
     def _calcAngularAcceleration(self):
+        """Angular acceleration in the world frame."""
         torque = self._calcTorque()
         angularVelocity = self._calcAngularVelocity()
         crossed = np.cross(angularVelocity, self.c['intertia']*angularVelocity, axis=0)

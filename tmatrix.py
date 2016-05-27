@@ -1,6 +1,6 @@
 import numpy as np
 
-class matrix:
+class Matrix:
     _matrix = None
     _attitude = None
 
